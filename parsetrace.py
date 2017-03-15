@@ -110,4 +110,4 @@ class traceParser:
 
 if __name__ == '__main__':
     traceP = traceParser('/home/kfedorov/lttng-traces/firefox/kernel/','firefox')
-    print(traceP.windowToString(traceP.windows[254], separator='|'))
+    print(traceP.windowToString(traceP.windows[254]))

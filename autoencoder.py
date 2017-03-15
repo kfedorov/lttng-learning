@@ -1,4 +1,4 @@
-import parsetrace
+import parsetrace_simple
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -7,20 +7,20 @@ import datetime
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-learning_rate = 0.01
-training_epochs = 450
-batch_size = 200
+learning_rate = 0.005
+training_epochs = 300
+batch_size = 500
 display_step = 1
-window_size = 150
+window_size = 100
 test_size = 200
 log_dir = dir_path + '/res/' + datetime.datetime.now().strftime("%y%m%d_%H%M")
-lmda = 0.01
+lmda = 1E-5
 
 
 os.makedirs(log_dir)
 
 # Data
-parser = parsetrace.traceParser(trace_file='/home/kfedorov/lttng-traces/firefox/kernel/',
+parser = parsetrace_simple.traceParser(trace_file='/home/kfedorov/lttng-traces/firefox/kernel/',
                                 trace_name='firefox',
                                 window_size=window_size)
 
@@ -29,7 +29,7 @@ all_data = all_data_initial.astype(float)
 
 # centering
 all_data_mean = np.mean(all_data, axis=0)
-all_data -= all_data_mean
+# all_data -= all_data_mean
 
 
 # normalization
@@ -42,7 +42,7 @@ def div0(a, b):
 
 
 all_data_std = np.std(all_data, axis=0)
-all_data = div0(all_data, all_data_std)
+# all_data = div0(all_data, all_data_std)
 
 data_count = all_data.shape[0]
 
@@ -54,41 +54,37 @@ test = all_data_shuffled[-test_size:]
 print('Data gathering done')
 
 # Network Parameters
-n_hidden_1 = 256  # 1st layer num features
-n_hidden_2 = 16  # 2nd layer num features
+n_hidden_1 = 128  # 1st layer num features
+n_hidden_2 = 8  # 2nd layer num features
 n_input = all_data[0].size
 n_clusters = 16
 # tf Graph input
 X = tf.placeholder(tf.float32, [None, n_input])
 
 def inverse(prediction):
-    prediction *= all_data_std
-    prediction += all_data_mean
+    # prediction *= all_data_std
+    # prediction += all_data_mean
     return prediction
 
 
 weights = {
-    'encoder_h1': tf.Variable(tf.truncated_normal([n_input, n_hidden_1], stddev=np.sqrt(2.0 / n_hidden_1)),
+    'encoder_h1': tf.Variable(tf.truncated_normal([n_input, n_hidden_1], stddev=0.01),
                               name='encoder_h1'),
-    'encoder_h2': tf.Variable(tf.truncated_normal([n_hidden_1, n_hidden_2], stddev=np.sqrt(2.0 / n_hidden_1)),
+    'encoder_h2': tf.Variable(tf.truncated_normal([n_hidden_1, n_hidden_2], stddev=0.01),
                               name='encoder_h2'),
-    'decoder_h1': tf.Variable(tf.truncated_normal([n_hidden_2, n_hidden_1], stddev=np.sqrt(2.0 / n_hidden_2)),
+    'decoder_h1': tf.Variable(tf.truncated_normal([n_hidden_2, n_hidden_1], stddev=0.01),
                               name='decode_h1'),
-    'decoder_h2': tf.Variable(tf.truncated_normal([n_hidden_1, n_input], stddev=np.sqrt(2.0 / n_hidden_1)),
+    'decoder_h2': tf.Variable(tf.truncated_normal([n_hidden_1, n_input], stddev=0.01),
                               name='decoder_h2'),
 }
 biases = {
-    'encoder_b1': tf.Variable(tf.random_normal([n_hidden_1]),
-                              name='encoder_b1'),
-    'encoder_b2': tf.Variable(tf.random_normal([n_hidden_2]),
-                              name='encoder_b2'),
-    'decoder_b1': tf.Variable(tf.random_normal([n_hidden_1]),
-                              name='decoder_b1'),
-    'decoder_b2': tf.Variable(tf.random_normal([n_input]),
-                              name='decoder_b2'),
+    'encoder_b1': tf.Variable(tf.zeros([n_hidden_1]), name='encoder_b1'),
+    'encoder_b2': tf.Variable(tf.zeros([n_hidden_2]), name='encoder_b2'),
+    'decoder_b1': tf.Variable(tf.zeros([n_hidden_1]), name='decoder_b1'),
+    'decoder_b2': tf.Variable(tf.zeros([n_input]), name='decoder_b2')
 }
 
-centroids = tf.Variable(tf.random_normal([n_clusters, n_hidden_2]))
+centroids = tf.Variable(tf.truncated_normal([n_clusters, n_hidden_2], stddev=0.01))
 next_centroids = tf.Variable(tf.zeros([n_clusters, n_hidden_2]))
 centroids_count = tf.Variable(tf.zeros([n_clusters]))
 
@@ -112,10 +108,10 @@ def encoder(x):
         variable_summaries('encoder_b1', biases['encoder_b1'])
         variable_summaries('encoder_b2', biases['encoder_b2'])
         # Encoder Hidden layer with sigmoid activation #1
-        layer_1 = tf.nn.sigmoid(tf.add(tf.matmul(x, weights['encoder_h1']), biases['encoder_b1']))
+        layer_1 = tf.nn.relu(tf.add(tf.matmul(x, weights['encoder_h1']), biases['encoder_b1']))
         variable_summaries('layer_1', layer_1)
         # Decoder Hidden layer with sigmoid activation #2
-        layer_2 = tf.nn.sigmoid(tf.add(tf.matmul(layer_1, weights['encoder_h2']), biases['encoder_b2']))
+        layer_2 = tf.nn.relu(tf.add(tf.matmul(layer_1, weights['encoder_h2']), biases['encoder_b2']))
         variable_summaries('Encoded_Layer', layer_2)
     return layer_2
 
@@ -129,10 +125,10 @@ def decoder(x):
         variable_summaries('decoder_b1', biases['decoder_b1'])
         variable_summaries('decoder_b2', biases['decoder_b2'])
         # Encoder Hidden layer with sigmoid activation #1
-        layer_1 = tf.nn.sigmoid(tf.add(tf.matmul(x, weights['decoder_h1']), biases['decoder_b1']))
+        layer_1 = tf.nn.relu(tf.add(tf.matmul(x, weights['decoder_h1']), biases['decoder_b1']))
         variable_summaries('layer_1', layer_1)
         # Decoder Hidden layer with sigmoid activation #2
-        layer_2 = tf.nn.sigmoid(tf.add(tf.matmul(layer_1, weights['decoder_h2']), biases['decoder_b2']))
+        layer_2 = tf.nn.relu(tf.add(tf.matmul(layer_1, weights['decoder_h2']),  biases['decoder_b2']))
         variable_summaries('decoded_layer', layer_2)
     return layer_2
 
@@ -151,7 +147,7 @@ diffToCentroid = tf.reduce_mean(tf.square(tf.map_fn(lambda x: tf.subtract(centro
 bestCentroidIdx = tf.arg_min(diffToCentroid, 1)
 bestCentroid = tf.gather(centroids, tf.cast(bestCentroidIdx, tf.int32))
 
-cost = tf.reduce_mean(tf.square(y_pred - y_true)) - lmda * tf.reduce_mean(tf.square(encoder_op - bestCentroid))
+cost = tf.reduce_mean(tf.square(y_pred - y_true)) * window_size - lmda * tf.reduce_mean(tf.square(encoder_op - bestCentroid))
 
 
 # update cluster
@@ -214,7 +210,7 @@ with tf.Session() as sess:
         EMB[i], decoded = sess.run([encoder_op, decoder_op], feed_dict={X: all_data[i:i + 1, :]})
         metadata_file.write('%06d\t%s\t%s\n' % (i,
                                                 parser.windowToString(all_data_initial[i], separator='||'),
-                                                parser.windowToString(inverse(decoded), separator='||')))
+                                                parser.windowToString(inverse(decoded[0]), separator='||')))
 
     embedding_var = tf.Variable(EMB, name='embeddings')
     sess.run(embedding_var.initializer)
@@ -238,10 +234,10 @@ with tf.Session() as sess:
 
     print("Optimization Finished!")
     # Applying cost over test set
-    c = sess.run([cost], feed_dict={X: test[:]})
-    pred = sess.run([decoder_op], feed_dict={X: all_data[1:2]})
+    c = sess.run(cost, feed_dict={X: test[:]})
+    pred = sess.run(decoder_op, feed_dict={X: all_data[1:2]})
     print("Mean square difference over test set: ", c)
     print('expected (initial): ')
     print(parser.windowToString(all_data_initial[1]))
     print('actual (predicted): ')
-    print(parser.windowToString(inverse(pred)))
+    print(parser.windowToString(inverse(pred[0])))
