@@ -1,12 +1,10 @@
-from collections import Counter
 import babeltrace
-import sys
 import numpy as np
 import pickle
 import os.path
 
 
-class traceParser:
+class trace_parser:
     windows = []
     i_to_name = {}
     name_to_i = {}
@@ -19,7 +17,6 @@ class traceParser:
         self.window_size = window_size
         self.save_dir = 'pickle/' + trace_name + '/'
         self.parse()
-
 
     def parse(self):
         if not os.path.exists(self.save_dir):
@@ -109,5 +106,5 @@ class traceParser:
 
 
 if __name__ == '__main__':
-    traceP = traceParser('/home/kfedorov/lttng-traces/firefox/kernel/','firefox')
+    traceP = trace_parser('/home/kfedorov/lttng-traces/firefox/kernel/','firefox')
     print(traceP.windowToString(traceP.windows[254]))

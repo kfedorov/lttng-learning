@@ -1,6 +1,0 @@
-model_checkpoint_path: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-112"
-all_model_checkpoint_paths: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-48"
-all_model_checkpoint_paths: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-64"
-all_model_checkpoint_paths: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-80"
-all_model_checkpoint_paths: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-96"
-all_model_checkpoint_paths: "/home/kfedorov/dev/lttng-learning/res/170319_1341/graph-112"

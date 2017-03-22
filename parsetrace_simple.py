@@ -6,7 +6,7 @@ import pickle
 import os.path
 
 
-class traceParser:
+class trace_parser:
     windows = []
     i_to_name = {}
     name_to_i = {}
@@ -101,7 +101,7 @@ class traceParser:
 
     def windowToString(self, window, separator='\n'):
         description = ''
-        window = np.multiply(window, self.window_size).astype(int)
+        window = np.rint(np.multiply(window, self.window_size)).astype(int)
         for idx,count in enumerate(window):
             if count == 0:
                 continue
@@ -114,5 +114,5 @@ class traceParser:
 
 
 if __name__ == '__main__':
-    traceP = traceParser('/home/kfedorov/lttng-traces/firefox/kernel/', 'firefox')
+    traceP = trace_parser('/home/kfedorov/lttng-traces/firefox/kernel/', 'firefox')
     print(traceP.windowToString(traceP.windows[254]))
