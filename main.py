@@ -14,13 +14,13 @@ test_size = 200
 # Training
 training_epochs = 300
 batch_size = 500
-clustering_factor = 1E-5
+clustering_factor = 1E-4
 
 # Saving
 summary_frequency = 1
 save_frequency = 40
 dir_path = os.path.dirname(os.path.realpath(__file__))
-save_dir = os.path.join(dir_path, 'res', datetime.datetime.now().strftime("%y%m%d_%H%M")) # /res/Date_HoursMinutes
+save_dir = os.path.join(dir_path, 'res', 'window-100' , datetime.datetime.now().strftime("%y%m%d_%H%M")) # /res/Date_HoursMinutes
 
 
 # Data
@@ -28,7 +28,7 @@ parser = parsetrace_simple.trace_parser(trace_file='/home/kfedorov/lttng-traces/
                                 trace_name='firefox',
                                 window_size=window_size)
 
-all_data =  parser.windows.astype(float)
+all_data = parser.windows.astype(float)
 data_count = all_data.shape[0]
 
 all_data_shuffled = np.random.permutation(all_data)
@@ -38,24 +38,25 @@ test = all_data_shuffled[-test_size:]
 print('Data gathering done')
 
 # Network Parameters
-n_input = all_data[0].size
+n_input = all_data.shape[1]
 
 
 autoencoder = autoencoder.ClusteringAutoencoder([n_input, 128, 8],
+                                                all_data.shape[0],
                                                 activation_func=tf.nn.relu6,
-                                                n_clusters=32,
+                                                n_clusters=10,
                                                 clustering_factor=clustering_factor,
-                                                optimization_func=tf.train.AdamOptimizer(0.0005),
+                                                optimization_func=tf.train.AdamOptimizer(0.0001),
                                                 save_path=save_dir,
-                                                debug_mode=False,
-                                                cost_func=lambda pred, actual: tf.reduce_mean(tf.square(pred - actual)) * window_size)
+                                                debug_mode=True,
+                                                cost_func=lambda pred, actual: tf.reduce_mean(tf.square(pred - actual)) * n_input)
 
 # Launch the graph
 autoencoder.initialize()
 
 for epoch in range(training_epochs):
     cost, base_cost, clustering_incentive = autoencoder.train_epoch(train, batch_size, epoch % summary_frequency == 0)
-    print("Epoch:", '%04d' % (epoch + 1), "cost= {:.9f} = {:.9f} - {:.9f} * {:.9f}".format(cost, base_cost, clustering_factor, clustering_incentive))
+    print("Epoch:", '%04d' % (epoch + 1), "cost= {:.9f} = {:.9f} + {:.9f} * {:.9f}".format(cost, base_cost, clustering_factor, clustering_incentive))
 
     if (epoch+1) % save_frequency == 0:
         autoencoder.save()
