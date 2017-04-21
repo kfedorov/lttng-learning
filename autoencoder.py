@@ -1,6 +1,7 @@
 import os
-import tensorflow as tf
+
 import numpy as np
+import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
@@ -102,6 +103,7 @@ class ClusteringAutoencoder:
         # Reward closeness to centroids (centroid accuracy)
         self.clustering_incentive = tf.reduce_mean(tf.square(self.encoded_output - best_centroids))
 
+        self.square_diff = tf.reduce_sum(tf.square(tf.subtract(self.decoded_output, self.input)),1)
         self.base_cost = base_cost_function(self.decoded_output, self.input)
         self.cost = self.base_cost + self.clustering_factor * self.clustering_incentive
 
@@ -203,15 +205,15 @@ class ClusteringAutoencoder:
         sample_count = data.shape[0]
         embeddings = np.zeros((sample_count, self.encoded_size), dtype='float32')
         metadata_file = open(os.path.join(self.save_path, 'labels.tsv'), 'w')
-        metadata_file.write('idx\tActual\tDecoded\t\cluster\n')
+        metadata_file.write('idx\tActual\tDecoded\t\cluster\tDiff\n')
 
         def compute_partial_embeddings(start_idx, end_idx):
-            embeddings[start_idx:end_idx], decoded, best_centroid = \
-                self.sess.run([self.encoded_output, self.decoded_output, self.best_centroid_index],
+            embeddings[start_idx:end_idx], decoded, best_centroid, diff = \
+                self.sess.run([self.encoded_output, self.decoded_output, self.best_centroid_index, self.square_diff],
                               feed_dict={self.input: data[start_idx:end_idx, :]})
             for j in range(decoded.shape[0]):
-                metadata_file.write('%06d\t%s\t%s\t%02d\n' % (
-                    j + start_idx, label_func(data[j + start_idx]), label_func(decoded[j]), best_centroid[j]))
+                metadata_file.write('%06d\t%s\t%s\t%02d\t%2.5f\n' % (
+                    j + start_idx, label_func(data[j + start_idx]), label_func(decoded[j]), best_centroid[j], diff[j]))
 
         n_iter = int(sample_count / batch_size)
         for i in range(n_iter):
